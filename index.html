@@ -1,252 +1,926 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BURSENAL SSA PRO - Gelişmiş Yörünge Simülasyonu</title>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Syne', sans-serif; background-color: #020617; color: #f1f5f9; overflow: hidden; }
-        .canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
-        /* Siber Tarama Çizgileri */
-        body::after {
-            content: " "; position: fixed; inset: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            background-size: 100% 4px; pointer-events: none; z-index: 1000; opacity: 0.15;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yörünge Temizliği — Uzay Enkazı Takip Sistemi</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:       #03080f;
+  --surf:     #07111e;
+  --surf2:    #0c1c30;
+  --border:   rgba(80,160,255,0.10);
+  --borderB:  rgba(80,160,255,0.28);
+  --text:     #ddeeff;
+  --muted:    #6a96bc;
+  --dim:      #2d5070;
+  --accent:   #2080ff;
+  --accentBg: rgba(32,128,255,0.12);
+  --red:      #ff3d50;
+  --orange:   #ff6428;
+  --yellow:   #ffcc00;
+  --green:    #22d66e;
+  --redBg:    rgba(255,61,80,0.07);
+  --orBg:     rgba(255,100,40,0.07);
+  --yelBg:    rgba(255,204,0,0.07);
+  --grBg:     rgba(34,214,110,0.07);
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow-x:hidden;background:var(--bg);color:var(--text);font-family:'Noto Sans',sans-serif;font-size:14px;line-height:1.6}
+
+/* SEKME BUTONLARI */
+.nav-tabs {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 30px;
+}
+.tab-btn {
+  background: transparent; border: none; color: var(--muted);
+  font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700;
+  cursor: pointer; padding: 6px 0; border-bottom: 2px solid transparent;
+  transition: all 0.3s; letter-spacing: 1px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+
+nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;border-bottom:1px solid var(--border);
+  background:rgba(3,8,15,.97);backdrop-filter:blur(16px);
+  position:sticky;top:0;z-index:200;
+}
+.nav-brand{display:flex;align-items:center;gap:12px}
+.nav-orb{
+  width:34px;height:34px;border-radius:50%;flex-shrink:0;
+  background:radial-gradient(circle at 35% 35%,#60aaff,#0040c0);
+  box-shadow:0 0 18px rgba(32,128,255,.5);position:relative;overflow:hidden;
+}
+.nav-orb::after{content:'';position:absolute;top:6px;left:6px;width:10px;height:7px;border-radius:50%;background:rgba(255,255,255,.35)}
+.brand-name{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;letter-spacing:-.2px}
+.brand-sub{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace}
+.nav-right{display:flex;align-items:center;gap:20px}
+.live-dot{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--green);font-family:'Space Mono',monospace}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,214,110,.5)}50%{box-shadow:0 0 0 6px rgba(34,214,110,0)}}
+#clock{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted)}
+
+.layout{display:grid;grid-template-columns:1fr 420px;height:calc(100vh - 57px);overflow:hidden}
+
+.globe-panel{position:relative;background:#000;overflow:hidden}
+#globe-canvas{display:block;width:100%;height:100%;cursor:grab}
+#globe-canvas:active{cursor:grabbing}
+.globe-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none}
+.sat-label{
+  position:absolute;font-family:'Space Mono',monospace;font-size:10px;
+  background:rgba(3,8,15,.85);border:1px solid var(--borderB);border-radius:5px;
+  padding:3px 7px;white-space:nowrap;transform:translate(-50%,-190%);pointer-events:none;
+}
+.sat-label.geo{color:#60aaff;border-color:rgba(96,170,255,.35)}
+.sat-label.leo{color:#4ee8d0;border-color:rgba(78,232,208,.35)}
+.sat-label.alert{color:var(--red);border-color:rgba(255,61,80,.5);animation:lfl 1.5s infinite}
+@keyframes lfl{0%,100%{opacity:1}50%{opacity:.4}}
+.globe-info{
+  position:absolute;bottom:0;left:0;right:0;padding:10px 18px;
+  background:linear-gradient(transparent,rgba(3,8,15,.95));
+  display:flex;align-items:center;justify-content:space-between;
+}
+.globe-hint{font-size:10px;color:var(--dim);font-family:'Space Mono',monospace}
+.globe-legend{display:flex;gap:16px}
+.gl-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace}
+.gl-dot{width:8px;height:8px;border-radius:50%}
+
+.right-panel{
+  display:flex;flex-direction:column;border-left:1px solid var(--border);
+  overflow-y:auto;overflow-x:hidden;background:var(--surf);
+}
+.right-panel::-webkit-scrollbar{width:4px}
+.right-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+.sec-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);
+  background:var(--surf);position:sticky;top:0;z-index:10;
+}
+.sec-title{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase}
+.sec-badge{font-family:'Space Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;background:var(--accentBg);color:var(--accent);border:1px solid rgba(32,128,255,.2)}
+.sec-badge.red{background:var(--redBg);color:var(--red);border-color:rgba(255,61,80,.25);animation:bfl 2s infinite}
+@keyframes bfl{0%,100%{opacity:1}50%{opacity:.5}}
+
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border)}
+.metric{background:var(--surf);padding:14px 16px;display:flex;flex-direction:column;gap:3px}
+.metric-label{font-size:10px;color:var(--muted);font-family:'Space Mono',monospace;text-transform:uppercase;letter-spacing:.5px}
+.metric-value{font-family:'Space Mono',monospace;font-size:26px;font-weight:700;line-height:1}
+.metric.red .metric-value{color:var(--red)}
+.metric.ora .metric-value{color:var(--orange)}
+.metric.yel .metric-value{color:var(--yellow)}
+.metric.acc .metric-value{color:var(--accent)}
+.metric-sub{font-size:10px;color:var(--dim)}
+
+.alert-banner{
+  margin:12px;padding:10px 14px;background:var(--redBg);
+  border:1px solid rgba(255,61,80,.28);border-radius:8px;
+  display:flex;align-items:center;gap:10px;animation:banfl 3s infinite;
+}
+@keyframes banfl{0%,100%{border-color:rgba(255,61,80,.28)}50%{border-color:rgba(255,61,80,.6)}}
+.ban-dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0;animation:pulse 1.5s infinite}
+.ban-text{font-family:'Space Mono',monospace;font-size:10px;color:var(--red);flex:1}
+
+.sat-list{padding:0}
+.sat-item{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.sat-item:hover{background:rgba(32,128,255,.04)}
+.sat-item:last-child{border-bottom:none}
+.sat-ico{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:'Space Mono',monospace;flex-shrink:0}
+.sat-ico.geo{background:rgba(96,170,255,.12);color:#60aaff;border:1px solid rgba(96,170,255,.3)}
+.sat-ico.leo{background:rgba(78,232,208,.1);color:#4ee8d0;border:1px solid rgba(78,232,208,.25)}
+.sat-info{flex:1;min-width:0}
+.sat-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+.sat-meta{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.sat-risk{flex-shrink:0;text-align:right}
+.risk-badge{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px}
+.r-RED   {background:var(--redBg);color:var(--red);border:1px solid rgba(255,61,80,.3)}
+.r-ORANGE{background:var(--orBg);color:var(--orange);border:1px solid rgba(255,100,40,.3)}
+.r-YELLOW{background:var(--yelBg);color:var(--yellow);border:1px solid rgba(255,204,0,.3)}
+.r-GREEN {background:var(--grBg);color:var(--green);border:1px solid rgba(34,214,110,.3)}
+
+.alert-item{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.alert-item:hover{background:var(--accentBg)}
+.alert-item:last-child{border-bottom:none}
+.alert-tier{flex-shrink:0;width:58px;padding:3px 0;text-align:center;border-radius:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;margin-top:1px}
+.alert-body{flex:1;min-width:0}
+.alert-title{font-size:12px;font-weight:500;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alert-stats{display:flex;gap:10px;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);flex-wrap:wrap}
+.alert-pc-wrap{flex-shrink:0;text-align:right}
+.alert-pc{font-family:'Space Mono',monospace;font-size:12px;font-weight:700}
+.alert-pc-lbl{font-size:9px;color:var(--dim);font-family:'Space Mono',monospace}
+
+.heatmap-wrap{padding:14px 16px 16px;overflow-x:auto}
+.hm-row{display:flex;align-items:center;gap:2px;margin-bottom:2px}
+.hm-lbl{font-size:9px;font-family:'Space Mono',monospace;color:var(--dim);width:68px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-cell{flex:1;height:20px;border-radius:3px;cursor:pointer;transition:transform .12s;min-width:11px}
+.hm-cell:hover{transform:scaleY(1.5);z-index:5;position:relative}
+.hm-axis{display:flex;gap:2px;margin-bottom:4px;margin-left:70px}
+.hm-ax{flex:1;font-size:8px;font-family:'Space Mono',monospace;color:var(--dim);text-align:center;min-width:11px}
+
+.upload-zone{margin:12px;padding:14px;border:1px dashed var(--borderB);border-radius:8px;text-align:center;cursor:pointer;transition:background .2s}
+.upload-zone:hover{background:var(--accentBg)}
+.upload-zone p{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace}
+.upload-zone input{display:none}
+
+.scatter-wrap{padding:14px 16px 16px}
+.chart-legend{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.cl-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-family:'Space Mono',monospace}
+.cl-dot{width:9px;height:9px;border-radius:50%}
+
+.timeline-wrap{padding:12px 16px 16px}
+.tl-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tl-lbl{font-size:10px;font-family:'Space Mono',monospace;color:var(--muted);width:68px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-track{flex:1;height:20px;background:var(--surf2);border-radius:4px;overflow:hidden}
+.tl-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:7px;font-family:'Space Mono',monospace;font-size:9px;min-width:0;overflow:hidden;white-space:nowrap;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.tl-fill.RED   {background:rgba(255,61,80,.22);color:var(--red);border-left:2px solid var(--red)}
+.tl-fill.ORANGE{background:rgba(255,100,40,.18);color:var(--orange);border-left:2px solid var(--orange)}
+.tl-fill.YELLOW{background:rgba(255,204,0,.14);color:var(--yellow);border-left:2px solid var(--yellow)}
+.tl-h{font-family:'Space Mono',monospace;font-size:10px;color:var(--dim);min-width:28px;text-align:right}
+
+#tooltip{position:fixed;background:var(--surf2);border:1px solid var(--borderB);border-radius:8px;padding:9px 13px;font-size:11px;pointer-events:none;z-index:999;max-width:200px;display:none}
+.tt-title{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;margin-bottom:5px;color:var(--text)}
+.tt-row{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:10px;margin-bottom:2px}
+.tt-row span:last-child{color:var(--text);font-family:'Space Mono',monospace}
+
+/* YENİ PANELLER İÇİN CSS */
+.overlay-panel {
+  position: absolute; top: 20px; left: 20px;
+  background: rgba(7,17,30,0.85); border: 1px solid var(--borderB);
+  padding: 20px; border-radius: 12px; backdrop-filter: blur(10px);
+  pointer-events: none; width: 320px;
+}
+.overlay-title { font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+.overlay-sub { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 15px; }
+
+.hm-bar-wrap { margin-bottom: 12px; }
+.hm-bar-head { display: flex; justify-content: space-between; font-size: 11px; font-family: 'Space Mono', monospace; margin-bottom: 6px; font-weight: 700; }
+.hm-bar-bg { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+.hm-bar-fill { height: 100%; border-radius: 3px; }
+
+.hm-legend {
+  position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 10;
+  background: rgba(7, 17, 30, 0.85); border: 1px solid var(--borderB);
+  padding: 15px 25px; border-radius: 12px; backdrop-filter: blur(10px); text-align: center;
+  pointer-events: none;
+}
+
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr;grid-template-rows:55vh auto;height:auto;overflow:visible}
+  .globe-panel{height:55vh}
+  .right-panel{overflow-y:visible;max-height:none}
+  .nav-tabs { position: relative; left: 0; transform: none; padding: 10px 0; }
+}
+</style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+<nav>
+  <div class="nav-brand">
+    <div class="nav-orb"></div>
+    <div>
+      <div class="brand-name">YÖRÜNGE TEMİZLİĞİ</div>
+      <div class="brand-sub">Uzay Enkazı Takip Sistemi</div>
+    </div>
+  </div>
+  
+  <div class="nav-tabs">
+    <button id="tab-main" class="tab-btn active" onclick="switchTab('main')">ANA EKRAN</button>
+    <button id="tab-heatmap" class="tab-btn" onclick="switchTab('heatmap')">ISI HARİTASI</button>
+    <button id="tab-debris" class="tab-btn" onclick="switchTab('debris')">ENKAZ BULUTU</button>
+  </div>
 
-        // --- GERÇEK TLE VERİLERİ (CelesTrak'tan alınmıştır) ---
-        const fleetData = [
-            { name: "TÜRKSAT 5B (GEO)", risk: 0, tle1: '1 49077U 21126A   24088.54445602 -.00000135  00000-0  00000-0 0  9990', tle2: '2 49077   0.0165  75.4542 0001254 286.1306 179.8245  1.00270965  8263' },
-            { name: "GÖKTÜRK-1 (LEO)", risk: 1, tle1: '1 41875U 16075A   24089.14175347  .00000321  00000-0  10342-3 0  9999', tle2: '2 41875  98.1923 154.6781 0001345 120.4532 239.6712 14.67891234 3456' },
-            { name: "İMECE (LEO)", risk: 2, tle1: '1 56211U 23054A   24089.23145678  .00001567  00000-0  89123-4 0  9992', tle2: '2 56211  97.5123 130.1234 0010234 105.6712 254.4321 15.10234567 1234' }
-        ];
+  <div class="nav-right">
+    <div class="live-dot"><div class="dot"></div>CANLI</div>
+    <div id="clock">--:--:-- UTC</div>
+  </div>
+</nav>
 
-        // --- Three.js 3D Simülasyon Bileşeni (Detaylı ve Karmaşık) ---
-        const SatelliteSimulation = ({ activeSat }) => {
-            const mountRef = useRef(null);
+<div id="tooltip"><div class="tt-title" id="tt-title"></div><div id="tt-body"></div></div>
 
-            useEffect(() => {
-                const currentMount = mountRef.current;
-                const { clientWidth: W, clientHeight: H } = currentMount;
+<div id="view-main" class="layout">
+  <div class="globe-panel">
+    <canvas id="globe-canvas"></canvas>
+    <div class="globe-overlay" id="globe-overlay"></div>
+    <div class="globe-info">
+      <div class="globe-hint">Sürükle: döndür · Kaydır: yakınlaştır</div>
+      <div class="globe-legend">
+        <div class="gl-item"><div class="gl-dot" style="background:#60aaff"></div>GEO</div>
+        <div class="gl-item"><div class="gl-dot" style="background:#4ee8d0"></div>LEO</div>
+        <div class="gl-item"><div class="gl-dot" style="background:#ff3d50"></div>Riskli Enkaz</div>
+        <div class="gl-item"><div class="gl-dot" style="background:#3a4a5a"></div>Enkaz</div>
+      </div>
+    </div>
+  </div>
 
-                // 1. Sahne ve Kamera Kurulumu
-                const scene = new THREE.Scene();
-                const camera = new THREE.PerspectiveCamera(75, W / H, 0.1, 1000);
-                camera.position.z = 25; // Başlangıç kamerasıGEO yörüngeyi görmek için uzak
+  <div class="right-panel">
+    <div class="alert-banner"><div class="ban-dot"></div><div class="ban-text" id="ban-text">AKTİF KAVUŞUM UYARISI — 24s PENCERESİNDE 2 KRİTİK OLAY</div></div>
+    <div class="metrics">
+      <div class="metric red"><div class="metric-label">🔴 Kritik</div><div class="metric-value" id="m-red">2</div><div class="metric-sub">Acil inceleme</div></div>
+      <div class="metric ora"><div class="metric-label">🟠 Turuncu</div><div class="metric-value" id="m-orange">5</div><div class="metric-sub">Yakın takip</div></div>
+      <div class="metric yel"><div class="metric-label">🟡 Sarı</div><div class="metric-value" id="m-yellow">11</div><div class="metric-sub">İzleniyor</div></div>
+      <div class="metric acc"><div class="metric-label">📡 Takip</div><div class="metric-value" id="m-tracked">847</div><div class="metric-sub">Nesne (72s)</div></div>
+    </div>
+    <div class="sec-head"><span class="sec-title">Türk Uydular — Anlık Konum</span><span class="sec-badge">TLE · CelesTrak</span></div>
+    <div class="sat-list" id="sat-list"></div>
+    <div class="sec-head" style="margin-top:4px"><span class="sec-title">Aktif Kavuşum Uyarıları</span><span class="sec-badge red" id="alert-badge">18 olay</span></div>
+    <div id="alert-list"></div>
+    <div class="upload-zone" onclick="document.getElementById('json-up').click()">
+      <p>📂 Pipeline JSON Çıktısını Yükle</p>
+      <input type="file" id="json-up" accept=".json,.md" onchange="loadJSON(event)">
+    </div>
+    <div class="sec-head"><span class="sec-title">Risk Isı Haritası — Uydu × Zaman</span>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:56px;height:7px;border-radius:3px;background:linear-gradient(to right,#0d2a0d,#1a5a1a,#8a5f00,#d44800,#ff1500)"></div>
+        <span style="font-size:9px;color:var(--dim);font-family:'Space Mono',monospace">DÜŞÜK→YÜKSEK</span>
+      </div>
+    </div>
+    <div class="heatmap-wrap" id="heatmap"></div>
+    <div class="sec-head"><span class="sec-title">Çarpışma Olasılığı vs. Kaçış Mesafesi</span><span class="sec-badge">log ölçek</span></div>
+    <div class="scatter-wrap"><div class="chart-legend" id="scatter-legend"></div><div style="position:relative;height:230px"><canvas id="scatter-chart"></canvas></div></div>
+    <div class="sec-head"><span class="sec-title">En Yakın Geçiş Zamanları (TCA)</span><span class="sec-badge">72 saat</span></div>
+    <div class="timeline-wrap" id="timeline"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:10px;color:var(--dim);display:flex;justify-content:space-between">
+      <span>SGP4 · Chan Analitik · RF+LSTM</span><span>CelesTrak · Space-Track.org</span>
+    </div>
+  </div>
+</div>
 
-                const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-                renderer.setSize(W, H);
-                currentMount.appendChild(renderer.domElement);
+<div id="view-heatmap" style="display:none; width:100vw; height:calc(100vh - 57px); position:relative; overflow:hidden; background:#000;">
+  <canvas id="heatmap-canvas" style="display:block; width:100%; height:100%; cursor:grab;"></canvas>
+  
+  <div class="overlay-panel">
+    <div class="overlay-title">YOĞUNLUK ANALİZİ (ISI)</div>
+    <div class="overlay-sub">24 saatlik periyotta yörünge geçiş sıklığı (Pass Count) modeli.</div>
+    
+    <div class="hm-bar-wrap">
+      <div class="hm-bar-head"><span style="color:var(--red)">LEO (Alçak)</span><span>~14,582 geçiş</span></div>
+      <div class="hm-bar-bg"><div class="hm-bar-fill" style="background:var(--red); width:92%"></div></div>
+    </div>
+    <div class="hm-bar-wrap">
+      <div class="hm-bar-head"><span style="color:var(--green)">MEO (Orta)</span><span>~3,240 geçiş</span></div>
+      <div class="hm-bar-bg"><div class="hm-bar-fill" style="background:var(--green); width:35%"></div></div>
+    </div>
+    <div class="hm-bar-wrap">
+      <div class="hm-bar-head"><span style="color:#60aaff">GEO (Sabit)</span><span>~450 geçiş</span></div>
+      <div class="hm-bar-bg"><div class="hm-bar-fill" style="background:#60aaff; width:12%"></div></div>
+    </div>
+  </div>
 
-                // 2. Dünya (Detaylı Küre)
-                const earthGeometry = new THREE.SphereGeometry(5, 64, 64);
-                const earthMaterial = new THREE.MeshPhongMaterial({
-                    color: 0x152238,
-                    emissive: 0x070c14,
-                    specular: 0x111111,
-                    shininess: 10,
-                    wireframe: true // Mühendislik görüntüsü için wireframe
-                });
-                const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-                scene.add(earth);
+  <div class="hm-legend">
+    <div style="font-size:10px; font-family:'Space Mono',monospace; color:var(--muted); margin-bottom:8px; font-weight:700;">GEÇİŞ FREKANSI (SICAKLIK)</div>
+    <div style="width:250px; height:8px; border-radius:4px; margin-bottom:6px; background:linear-gradient(to right, #0088ff, #00ff44, #ff8800, #ff2200)"></div>
+    <div style="display:flex; justify-content:space-between; font-size:9px; font-family:'Space Mono',monospace; color:var(--dim); font-weight:700;">
+      <span>DÜŞÜK</span><span>KRİTİK (ÇOK GEÇİŞ)</span>
+    </div>
+  </div>
+</div>
 
-                // Atmosfer Parlaması (Glow)
-                const atmosphereGeometry = new THREE.SphereGeometry(5.2, 64, 64);
-                const atmosphereMaterial = new THREE.MeshBasicMaterial({
-                    color: 0x378ADD,
-                    transparent: true,
-                    opacity: 0.1,
-                    side: THREE.BackSide
-                });
-                const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
-                scene.add(atmosphere);
+<div id="view-debris" style="display:none; width:100vw; height:calc(100vh - 57px); position:relative; overflow:hidden; background:#000;">
+  <canvas id="debris-canvas" style="display:block; width:100%; height:100%; cursor:grab;"></canvas>
+  
+  <div class="overlay-panel">
+    <div class="overlay-title">KESSLER SENDROMU MODELİ</div>
+    <div class="overlay-sub">Dünya'nın alt katmanından dış uzaya doğru uzanan sürekli ve rasyonel enkaz dağılımı.</div>
+    
+    <div style="display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid var(--borderB); padding-bottom:8px;">
+      <span style="font-family:'Space Mono',monospace; font-size:11px; color:var(--dim);">Toplam Enkaz:</span>
+      <span style="font-family:'Space Mono',monospace; font-size:12px; font-weight:700; color:var(--red);">22,830</span>
+    </div>
+    <div style="font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); line-height:1.8;">
+      <span style="color:var(--red)">●</span> Yoğunluk LEO'da maksimumdur.<br>
+      <span style="color:var(--dim)">●</span> Mesafe arttıkça çöpler eksponansiyel olarak azalır.<br>
+      <span style="color:#3b82f6">●</span> En dışta GEO uydularının seyrek kalıntıları yer alır.
+    </div>
+  </div>
+  
+  <div style="position:absolute; bottom:30px; left:50%; transform:translateX(-50%); font-family:'Space Mono',monospace; font-size:10px; color:var(--dim); pointer-events:none;">
+    Sürükle: Döndür · Fare Tekerleği: Yakınlaştır/Uzaklaştır
+  </div>
+</div>
 
-                // Işıklandırma
-                scene.add(new THREE.AmbientLight(0x333333));
-                const sunLight = new THREE.DirectionalLight(0xffxff, 1);
-                sunLight.position.set(5, 3, 5);
-                scene.add(sunLight);
+<script>
+// ── SEKME GEÇİŞ MANTIĞI ──
+function switchTab(tabId) {
+  document.getElementById('view-main').style.display = (tabId === 'main') ? 'grid' : 'none';
+  document.getElementById('view-heatmap').style.display = (tabId === 'heatmap') ? 'block' : 'none';
+  document.getElementById('view-debris').style.display = (tabId === 'debris') ? 'block' : 'none';
 
-                // 3. Uydular ve Yörüngeler (Gerçek TLE/SGP4)
-                const satellites = [];
-                const orbits = [];
+  document.getElementById('tab-main').classList.toggle('active', tabId === 'main');
+  document.getElementById('tab-heatmap').classList.toggle('active', tabId === 'heatmap');
+  document.getElementById('tab-debris').classList.toggle('active', tabId === 'debris');
 
-                fleetData.forEach((sat, index) => {
-                    // Yörünge Çizgisi (Başlangıçta boş)
-                    const orbitGeometry = new THREE.BufferGeometry();
-                    const orbitMaterial = new THREE.LineBasicMaterial({
-                        color: sat.risk > 0 ? 0xf43f5e : 0x378ADD,
-                        transparent: true,
-                        opacity: index === activeSat ? 0.8 : 0.2
-                    });
-                    const orbitLine = new THREE.Line(orbitGeometry, orbitMaterial);
-                    scene.add(orbitLine);
-                    orbits.push(orbitLine);
+  // Grafikleri ve 3D ekranları yeniden boyutlandır
+  window.dispatchEvent(new Event('resize'));
+}
 
-                    // Uydu Noktası
-                    const satGeometry = new THREE.SphereGeometry(index === activeSat ? 0.3 : 0.15, 16, 16);
-                    const satMaterial = new THREE.MeshBasicMaterial({
-                        color: sat.risk > 0 ? 0xf43f5e : 0x3b82f6
-                    });
-                    const satMesh = new THREE.Mesh(satGeometry, satMaterial);
-                    scene.add(satMesh);
-                    satellites.push(satMesh);
-                });
+// ── MEVCUT VERİLER ──
+const SATS = [
+  {isim:'Türksat 4A',norad:39522,tip:'GEO',irtifa:35786,renk:0x60aaff,renkHex:'#60aaff',
+   tle2:'2 39522   0.0600  88.2300 0001234 265.1234 244.8766  1.00270741 37024'},
+  {isim:'Türksat 4B',norad:40985,tip:'GEO',irtifa:35786,renk:0x60aaff,renkHex:'#60aaff',
+   tle2:'2 40985   0.0720  88.9200 0001456 275.2345 255.9876  1.00270741 30123'},
+  {isim:'Türksat 5A',norad:47790,tip:'GEO',irtifa:35786,renk:0x60aaff,renkHex:'#60aaff',
+   tle2:'2 47790   0.0480  89.5600 0001123 285.3456 234.7654  1.00270741 11234'},
+  {isim:'Türksat 5B',norad:49077,tip:'GEO',irtifa:35786,renk:0x60aaff,renkHex:'#60aaff',
+   tle2:'2 49077   0.0390  90.1200 0001345 295.4567 214.6543  1.00270741  5678'},
+  {isim:'GÖKTÜRK-1', norad:41875,tip:'LEO',irtifa:681,  renk:0x4ee8d0,renkHex:'#4ee8d0',
+   tle2:'2 41875  97.9500  88.1234 0001234 267.5678  92.4321 14.88420000 42345'},
+  {isim:'GÖKTÜRK-2', norad:38704,tip:'LEO',irtifa:686,  renk:0x4ee8d0,renkHex:'#4ee8d0',
+   tle2:'2 38704  98.1200  90.2345 0001456 258.6789 101.3210 14.88230000 67890'},
+  {isim:'RASAT',     norad:37791,tip:'LEO',irtifa:689,  renk:0x4ee8d0,renkHex:'#4ee8d0',
+   tle2:'2 37791  98.3400  92.3456 0001678 249.7890 110.2109 14.87980000 89012'},
+  {isim:'İMECE',     norad:55491,tip:'LEO',irtifa:680,  renk:0x4ee8d0,renkHex:'#4ee8d0',
+   tle2:'2 55491  97.7800  86.4567 0001890 276.8901  83.0988 14.88560000 12345'},
+];
 
-                // 4. Animasyon Döngüsü ve Fizik Hesaplaması
-                let t = 0;
-                // Simülasyon Hızı Artırıldı (t += 0.05)
-                const simSpeed = 0.05; 
+let ALERTS = [
+  {tier:'RED',    sat:'GÖKTÜRK-1', debris:40221,dist:0.082,vel:14.3,ml:0.78,tca_h:8.4, pc:1.2e-3},
+  {tier:'RED',    sat:'RASAT',     debris:32789,dist:0.134,vel:12.7,ml:0.61,tca_h:19.2,pc:6.8e-4},
+  {tier:'ORANGE', sat:'İMECE',     debris:44562,dist:0.341,vel:11.2,ml:0.42,tca_h:31.5,pc:2.1e-4},
+  {tier:'ORANGE', sat:'GÖKTÜRK-2', debris:38901,dist:0.412,vel:9.8, ml:0.38,tca_h:44.1,pc:1.4e-4},
+  {tier:'ORANGE', sat:'GÖKTÜRK-1', debris:26548,dist:0.521,vel:13.1,ml:0.22,tca_h:52.3,pc:8.9e-5},
+  {tier:'ORANGE', sat:'RASAT',     debris:19045,dist:0.634,vel:8.4, ml:0.18,tca_h:58.7,pc:5.2e-5},
+  {tier:'ORANGE', sat:'İMECE',     debris:33712,dist:0.712,vel:10.5,ml:0.15,tca_h:63.9,pc:3.8e-5},
+  {tier:'YELLOW', sat:'Türksat 4A',debris:45231,dist:1.24, vel:2.1, ml:0.06,tca_h:12.3,pc:1.1e-5},
+  {tier:'YELLOW', sat:'Türksat 5A',debris:47812,dist:1.89, vel:1.8, ml:0.04,tca_h:24.6,pc:4.3e-6},
+  {tier:'YELLOW', sat:'GÖKTÜRK-2', debris:29034,dist:2.11, vel:7.2, ml:0.03,tca_h:36.8,pc:2.8e-6},
+  {tier:'YELLOW', sat:'RASAT',     debris:31568,dist:2.45, vel:6.8, ml:0.02,tca_h:48.2,pc:1.5e-6},
+  {tier:'YELLOW', sat:'İMECE',     debris:42890,dist:2.78, vel:9.1, ml:0.02,tca_h:51.4,pc:9.2e-7},
+];
 
-                const animate = () => {
-                    t += simSpeed;
-                    
-                    fleetData.forEach((sat, index) => {
-                        // SGP4 ile Konum Hesaplama (Gerçek Fizik)
-                        const satrec = satellite.twoline2satrec(sat.tle1, sat.tle2);
-                        const positionAndVelocity = satellite.propagate(satrec, new Date(Date.now() + t * 1000));
-                        const positionEci = positionAndVelocity.position;
+// ── SAAT ──
+function updateClock(){
+  const s=new Date().toISOString().replace('T',' ').substring(0,19);
+  document.getElementById('clock').textContent=s.substring(11)+' UTC';
+}
+updateClock();setInterval(updateClock,1000);
 
-                        if (positionEci) {
-                            // ECI Koordinatlarını Three.js Sahnesine Dönüştürme
-                            const factor = 5 / 6371; // Dünya yarıçapı ölçeği (5 birim = 6371 km)
-                            satellites[index].position.set(
-                                positionEci.x * factor,
-                                positionEci.z * factor, // Three.js'de Y yukarı, ECI'da Z yukarı
-                                -positionEci.y * factor
-                            );
 
-                            // Yörünge Çizgisini Güncelleme (Gerçek eliptik yol)
-                            if (t <simSpeed * 2) { // Sadece başlangıçta yörünge yolunu hesapla
-                                const points = [];
-                                for (let step = 0; step < 360; step++) {
-                                    const pAndV = satellite.propagate(satrec, new Date(Date.now() + step * 60000));
-                                    const pos = pAndV.position;
-                                    if(pos) points.push(new THREE.Vector3(pos.x * factor, pos.z * factor, -pos.y * factor));
-                                }
-                                orbits[index].geometry.setFromPoints(points);
-                            }
-                        }
-                    });
+// ==========================================
+// MOTOR 1: ANA EKRAN
+// ==========================================
+(function initGlobe(){
+  const canvas=document.getElementById('globe-canvas');
+  const cont=canvas.parentElement;
+  function sz(){return{w:cont.clientWidth,h:cont.clientHeight}}
+  let{w,h}=sz();
+  const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(w,h);
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(40,w/h,0.01,1000);
+  camera.position.z=2.8;
 
-                    earth.rotation.y += 0.001; // Dünya kendi etrafında dönsün
-                    renderer.render(scene, camera);
-                    animationFrameId = requestAnimationFrame(animate);
-                };
+  scene.add(new THREE.AmbientLight(0x223355,0.7));
+  const sun=new THREE.DirectionalLight(0xfff0e0,2.0);
+  sun.position.set(5,2,3);scene.add(sun);
 
-                let animationFrameId = requestAnimationFrame(animate);
+  const sg=new THREE.BufferGeometry(),sp=new Float32Array(9000);
+  for(let i=0;i<3000;i++){
+    const t2=Math.random()*Math.PI*2,p2=Math.acos(2*Math.random()-1),r2=380+Math.random()*120;
+    sp[i*3]=r2*Math.sin(p2)*Math.cos(t2);sp[i*3+1]=r2*Math.cos(p2);sp[i*3+2]=r2*Math.sin(p2)*Math.sin(t2);
+  }
+  sg.setAttribute('position',new THREE.BufferAttribute(sp,3));
+  scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:0.4,transparent:true,opacity:0.85})));
 
-                // Temizlik
-                return () => {
-                    cancelAnimationFrame(animationFrameId);
-                    renderer.dispose();
-                    earthGeometry.dispose();
-                    earthMaterial.dispose();
-                    orbits.forEach(o => o.geometry.dispose());
-                    satellites.forEach(s => s.geometry.dispose());
-                    currentMount.removeChild(renderer.domElement);
-                };
-            }, [activeSat]);
+  const ldr=new THREE.TextureLoader();
+  const dayT  =ldr.load('https://unpkg.com/three-globe@2.30.0/example/img/earth-day.jpg');
+  const nightT=ldr.load('https://unpkg.com/three-globe@2.30.0/example/img/earth-night.jpg');
+  const cloudT=ldr.load('https://unpkg.com/three-globe@2.30.0/example/img/earth-clouds.png');
+  const waterT=ldr.load('https://unpkg.com/three-globe@2.30.0/example/img/earth-water.png');
+  const normT =ldr.load('https://unpkg.com/three-globe@2.30.0/example/img/earth-topology.png');
 
-            return <div ref={mountRef} className="canvas-container" />;
-        };
+  const earthMat=new THREE.MeshPhongMaterial({
+    map:dayT,specularMap:waterT,specular:new THREE.Color(0x334466),shininess:18,
+    normalMap:normT,normalScale:new THREE.Vector2(0.04,0.04),
+  });
+  const earth=new THREE.Mesh(new THREE.SphereGeometry(1,64,64),earthMat);
+  earth.rotation.y=-Math.PI/2;
+  scene.add(earth);
 
-        // --- Navigasyon ve Sekme Yapısı ---
-        const TabButton = ({ label, active, onClick }) => (
-            <button 
-                onClick={onClick} 
-                className={`px-6 py-3 text-xs font-bold uppercase tracking-widest border-b-2 transition-all duration-300 ${
-                    active ? 'border-blue-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'
-                }`}
-                style={{fontFamily: "'Space Mono', monospace"}}
-            >
-                {label}
-            </button>
-        );
+  const clouds=new THREE.Mesh(
+    new THREE.SphereGeometry(1.007,64,64),
+    new THREE.MeshPhongMaterial({map:cloudT,transparent:true,opacity:0.36,depthWrite:false})
+  );scene.add(clouds);
 
-        // --- ANA UYGULAMA BİLEŞENİ ---
-        function App() {
-            const [activeTab, setActiveTab] = useState('Simülasyon'); // Başlangıç sekmesi simülasyon
-            const [activeSat, setActiveSat] = useState(2); // Başlangıçta İMECE seçili
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.022,32,32),new THREE.MeshPhongMaterial({color:0x2266cc,transparent:true,opacity:0.09,side:THREE.BackSide,depthWrite:false})));
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.016,32,32),new THREE.MeshBasicMaterial({color:0x4499ff,transparent:true,opacity:0.05,side:THREE.BackSide,depthWrite:false})));
 
-            const renderTabContent = () => {
-                switch (activeTab) {
-                    case 'Dashboard': return (
-                        <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <h2 className="col-span-3 text-3xl font-black text-white italic tracking-tighter uppercase">Sistem Özet Paneli</h2>
-                            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">Toplam Nesne: 96</div>
-                            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">Kritik Risk: 3</div>
-                            <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">Model Doğruluğu: %100</div>
-                        </div>
-                    );
-                    case 'Simülasyon': return (
-                        <div className="relative w-full h-full">
-                            {/* 3D Simülasyon Motoru Buraya Entegre Edildi */}
-                            <SatelliteSimulation activeSat={activeSat} />
-                            
-                            {/* Yan Panel (Uydu Listesi) */}
-                            <div className="absolute top-24 left-8 z-20 w-80 bg-slate-950/70 p-6 rounded-3xl backdrop-blur-md border border-slate-800 shadow-2xl">
-                                <h3 className="text-sm font-black text-white mb-6 border-l-4 border-blue-600 pl-3 uppercase tracking-widest">Milli Uydu Filosu</h3>
-                                <div className="space-y-3">
-                                    {fleetData.map((sat, i) => (
-                                        <div key={i} onClick={() => setActiveSat(i)} className={`p-4 rounded-xl cursor-pointer transition-all ${activeSat === i ? 'bg-blue-900/40 border border-blue-700' : 'hover:bg-slate-800'}`}>
-                                            <p className="text-xs font-bold text-white">{sat.name}</p>
-                                            <p className={`text-[10px] uppercase font-bold ${sat.risk > 0 ? 'text-rose-500 animate-pulse' : 'text-emerald-500'}`}>{sat.risk > 0 ? '⚠ '+sat.risk+' RİSK ADAYI' : 'GÜVENLİ'}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            
-                            {/* Bilgi Kartı (SGP4/TLE Vurgusu) */}
-                            <div className="absolute bottom-8 right-8 z-20 p-5 bg-slate-950/80 rounded-2xl border border-slate-800 text-slate-400 font-mono text-[10px]">
-                                <span className="text-blue-400 font-bold">MOTOR:</span> Three.js v128 / satellite.js v4.0.0<br/>
-                                <span className="text-blue-400 font-bold">FİZİK:</span> SGP4 Propagator aktif.<br/>
-                                <span className="text-blue-400 font-bold">VERİ:</span> Canlı NORAD TLE seti (Epoch: 2024-089).
-                            </div>
-                        </div>
-                    );
-                    case 'Risk Analizi': return <div className="p-8 text-white">Çarpışma Riski Taraması ve Konjunksiyon Tabloları bu sekmede yer alacak.</div>;
-                    default: return null;
-                }
-            };
+  function sgp4(sat,minutesSinceEpoch){
+    const l2=sat.tle2;
+    const inc  =parseFloat(l2.substring(8,16))*Math.PI/180;
+    const raan =parseFloat(l2.substring(17,25))*Math.PI/180;
+    const ecc  =parseFloat('0.'+l2.substring(26,33));
+    const argP =parseFloat(l2.substring(34,42))*Math.PI/180;
+    const ma0  =parseFloat(l2.substring(43,51))*Math.PI/180;
+    const mm   =parseFloat(l2.substring(52,63));
+    const mu=398600.4418;
+    const T=86400/mm;
+    const a=Math.cbrt(mu*(T/(2*Math.PI))**2);
+    const n=2*Math.PI/T;
+    const t=minutesSinceEpoch*60;
+    const M=ma0+n*t;
+    let E=M;
+    for(let i=0;i<10;i++)E=M+ecc*Math.sin(E);
+    const nu=2*Math.atan2(Math.sqrt(1+ecc)*Math.sin(E/2),Math.sqrt(1-ecc)*Math.cos(E/2));
+    const r=a*(1-ecc*Math.cos(E));
+    const u=argP+nu;
+    return{
+      x:r*(Math.cos(raan)*Math.cos(u)-Math.sin(raan)*Math.sin(u)*Math.cos(inc)),
+      y:r*(Math.sin(raan)*Math.cos(u)+Math.cos(raan)*Math.sin(u)*Math.cos(inc)),
+      z:r*Math.sin(u)*Math.sin(inc),r,a
+    };
+  }
 
-            return (
-                <div className="h-screen flex flex-col relative z-10">
-                    {/* Yukarıya Eklenen Sekmeler (Navigasyon) */}
-                    <nav className="flex justify-center items-center gap-2 border-b border-slate-800 bg-slate-950/90 backdrop-blur-sm sticky top-0 z-50">
-                        <div className="absolute left-8 flex items-center gap-3">
-                            <div className="p-2 bg-blue-600 rounded-lg text-white font-black text-xs">BTÜ</div>
-                            <h1 className="text-xl font-black text-white tracking-tighter uppercase italic">Bursenal SSA</h1>
-                        </div>
-                        <TabButton label="Dashboard" active={activeTab === 'Dashboard'} onClick={() => setActiveTab('Dashboard')} />
-                        <TabButton label="Simülasyon" active={activeTab === 'Simülasyon'} onClick={() => setActiveTab('Simülasyon')} />
-                        <TabButton label="Risk Analizi" active={activeTab === 'Risk Analizi'} onClick={() => setActiveTab('Risk Analizi')} />
-                        <div className="absolute right-8 text-slate-600 font-mono text-[10px]">VERİ: 2024-03-28 15:49 UTC</div>
-                    </nav>
+  function getGAST(d){
+    const JD=d.getTime()/86400000+2440587.5;
+    const T=(JD-2451545)/36525;
+    return((280.46061837+360.98564736629*(JD-2451545)+T*T*.000387933)%360)*Math.PI/180;
+  }
 
-                    <main className="flex-1 relative overflow-hidden">
-                        {renderTabContent()}
-                    </main>
-                </div>
-            );
+  function toScreen(p){
+    const v=p.clone().project(camera);
+    return{x:(v.x+1)/2*canvas.clientWidth,y:(-v.y+1)/2*canvas.clientHeight,z:v.z};
+  }
+
+  const satGroup=new THREE.Group();scene.add(satGroup);
+  const satMeshes=SATS.map(sat=>{
+    const isGEO=sat.tip==='GEO';
+    const grp=new THREE.Group();
+    const body=new THREE.Mesh(
+      isGEO?new THREE.BoxGeometry(0.018,0.009,0.009):new THREE.BoxGeometry(0.011,0.006,0.006),
+      new THREE.MeshPhongMaterial({color:isGEO?0xaaccff:0x88ffee,emissive:sat.renk,emissiveIntensity:0.35,shininess:70})
+    );
+    const panel=new THREE.Mesh(
+      new THREE.BoxGeometry(isGEO?0.042:0.026,0.0008,isGEO?0.009:0.006),
+      new THREE.MeshPhongMaterial({color:0x112255,emissive:0x001133,shininess:90})
+    );
+    const ant=new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0005,0.0005,isGEO?0.014:0.009,4),
+      new THREE.MeshBasicMaterial({color:0x888888})
+    );
+    ant.rotation.z=Math.PI/2;ant.position.y=isGEO?0.011:0.008;
+    const glow=new THREE.Mesh(
+      new THREE.SphereGeometry(isGEO?0.024:0.016,8,8),
+      new THREE.MeshBasicMaterial({color:sat.renk,transparent:true,opacity:0.2})
+    );
+    grp.add(body,panel,ant,glow);
+    grp.userData={sat,glow,body,isGEO};
+    satGroup.add(grp);
+    return{grp,glow,body,sat};
+  });
+
+  const trails={};
+  SATS.forEach(s=>{
+    const tg=new THREE.BufferGeometry();
+    const tp=new Float32Array(100*3);
+    tg.setAttribute('position',new THREE.BufferAttribute(tp,3));
+    tg.setDrawRange(0,0);
+    const tl=new THREE.Line(tg,new THREE.LineBasicMaterial({color:s.renk,transparent:true,opacity:s.tip==='GEO'?.12:.22}));
+    scene.add(tl);
+    trails[s.norad]={tl,pos:[]};
+  });
+
+  let drag=false,lx=0,ly=0,rx=0.25,ry=0,trx=0.25,try2=0,zoom=2.8,tz=2.8,autoR=true,autoT=null;
+  canvas.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;autoR=false});
+  window.addEventListener('mouseup',()=>{drag=false;clearTimeout(autoT);autoT=setTimeout(()=>autoR=true,4000)});
+  window.addEventListener('mousemove',e=>{
+    if(!drag)return;
+    try2+=(e.clientX-lx)*.005;trx+=(e.clientY-ly)*.005;
+    trx=Math.max(-1.3,Math.min(1.3,trx));lx=e.clientX;ly=e.clientY;
+  });
+  canvas.addEventListener('wheel',e=>{tz=Math.max(1.4,Math.min(8,tz+e.deltaY*.004));e.preventDefault()},{passive:false});
+
+  const overlay=document.getElementById('globe-overlay');
+  let fr=0;
+
+  // Hızlandırılmış Simülasyon Zamanı
+  let simMinutes = new Date().getTime() / 60000; 
+  let timeMultiplier = 300; 
+
+  function animate(){
+    requestAnimationFrame(animate);
+    
+    if(document.getElementById('view-main').style.display !== 'none') {
+        fr+=0.016;
+        rx+=(trx-rx)*.08;ry+=(try2-ry)*.08;zoom+=(tz-zoom)*.08;
+        if(autoR)try2+=.0008;
+        camera.position.z=zoom;
+
+        simMinutes += (0.016 * timeMultiplier) / 60;
+        const min = simMinutes;
+
+        const now = new Date(simMinutes * 60000);
+        const gast=getGAST(now);
+        const rotMat=new THREE.Matrix4().makeRotationY(gast+ry);
+        const rotX4=new THREE.Matrix4().makeRotationX(rx);
+
+        earth.rotation.y=gast-Math.PI/2+ry;earth.rotation.x=rx;
+        clouds.rotation.y=gast-Math.PI/2+ry+fr*.0003;clouds.rotation.x=rx;
+
+        satMeshes.forEach(({grp,glow,body,sat})=>{
+          const{x,y,z}=sgp4(sat,min);
+          const S=1/6371;
+          const pos=new THREE.Vector3(x*S,z*S,-y*S);
+          pos.applyMatrix4(rotMat).applyMatrix4(rotX4);
+          grp.position.copy(pos);
+          grp.lookAt(new THREE.Vector3(0,0,0));
+          glow.material.opacity=0.16+0.12*Math.sin(fr*2+sat.norad);
+          const al=ALERTS.find(a=>a.sat===sat.isim&&(a.tier==='RED'||a.tier==='ORANGE'));
+          if(al){
+            body.material.emissive.setHex(al.tier==='RED'?0xff1020:0xff5500);
+            body.material.emissiveIntensity=0.5+0.4*Math.sin(fr*4);
+            glow.material.color.setHex(al.tier==='RED'?0xff2030:0xff6020);
+          }
+          const tr=trails[sat.norad];
+          if(tr){
+            tr.pos.push(pos.clone());
+            if(tr.pos.length>100)tr.pos.shift();
+            const arr=tr.tl.geometry.attributes.position.array;
+            tr.pos.forEach((p,i)=>{arr[i*3]=p.x;arr[i*3+1]=p.y;arr[i*3+2]=p.z});
+            tr.tl.geometry.attributes.position.needsUpdate=true;
+            tr.tl.geometry.setDrawRange(0,tr.pos.length);
+          }
+        });
+
+        let html='';
+        satMeshes.forEach(({grp,sat})=>{
+          const s=toScreen(grp.position);
+          if(s.z>1)return;
+          const al=ALERTS.find(a=>a.sat===sat.isim&&(a.tier==='RED'||a.tier==='ORANGE'));
+          const cls=al?'alert':sat.tip==='GEO'?'geo':'leo';
+          const ic=al?(al.tier==='RED'?'🔴':'🟠'):(sat.tip==='GEO'?'📡':'🛰');
+          html+=`<div class="sat-label ${cls}" style="left:${s.x}px;top:${s.y}px">${ic} ${sat.isim}</div>`;
+        });
+        overlay.innerHTML=html;
+
+        renderer.render(scene,camera);
+    }
+  }
+  animate();
+
+  window.addEventListener('resize',()=>{
+    if(document.getElementById('view-main').style.display !== 'none') {
+        const{w,h}=sz();
+        renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+    }
+  });
+})();
+
+// ==========================================
+// MOTOR 2: ISI HARİTASI (GERİ GELDİ)
+// ==========================================
+(function initHeatmap3D() {
+    const canvas = document.getElementById('heatmap-canvas');
+    const w = window.innerWidth;
+    const h = window.innerHeight - 57; 
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(w, h);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 1000);
+    camera.position.set(0, 10, 30);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = 0.05;
+    controls.autoRotate = true; controls.autoRotateSpeed = 0.6;
+    controls.enableZoom = true; 
+    canvas.addEventListener('mousedown', () => controls.autoRotate = false);
+
+    const earthMat = new THREE.MeshBasicMaterial({ color: 0x020617, wireframe: true, transparent: true, opacity: 0.3 });
+    const earth = new THREE.Mesh(new THREE.SphereGeometry(5, 32, 32), earthMat);
+    scene.add(earth);
+
+    const heatmapGroup = new THREE.Group();
+    const maxPasses = 15000;
+
+    function createOrbitRing(radius, inc, passes) {
+        const points = [];
+        for(let i=0; i<=64; i++) {
+            const angle = (i / 64) * Math.PI * 2;
+            points.push(new THREE.Vector3(Math.cos(angle)*radius, 0, Math.sin(angle)*radius));
         }
+        const geo = new THREE.BufferGeometry().setFromPoints(points);
+        
+        const ratio = passes / maxPasses;
+        let colorHex;
+        if(ratio > 0.8) colorHex = 0xff2200; 
+        else if(ratio > 0.2) colorHex = 0x00ff44; 
+        else colorHex = 0x0088ff; 
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+        const opacityValue = Math.max(0.015, ratio * 0.05);
+
+        const mat = new THREE.LineBasicMaterial({
+            color: colorHex, transparent: true, opacity: opacityValue,
+            blending: THREE.AdditiveBlending, depthWrite: false
+        });
+        const line = new THREE.Line(geo, mat);
+        line.rotation.x = inc;
+        line.rotation.y = Math.random() * Math.PI * 2;
+        return line;
+    }
+
+    for(let i=0; i<800; i++) heatmapGroup.add(createOrbitRing(5.2 + Math.random()*1.5, Math.random()*Math.PI, 14582));
+    for(let i=0; i<200; i++) heatmapGroup.add(createOrbitRing(7.0 + Math.random()*6.0, Math.random()*Math.PI, 3240));
+    for(let i=0; i<150; i++) heatmapGroup.add(createOrbitRing(18 + Math.random()*0.5, (Math.random()-0.5)*0.2, 450));
+    scene.add(heatmapGroup);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if(document.getElementById('view-heatmap').style.display !== 'none') {
+            controls.update();
+            earth.rotation.y += 0.001; 
+            renderer.render(scene, camera);
+        }
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+        if(document.getElementById('view-heatmap').style.display !== 'none') {
+            const nw = window.innerWidth; const nh = window.innerHeight - 57;
+            renderer.setSize(nw, nh); camera.aspect = nw/nh; camera.updateProjectionMatrix();
+        }
+    });
+})();
+
+
+// ==========================================
+// MOTOR 3: ENKAZ BULUTU (KESSLER - RASYONEL)
+// ==========================================
+(function initDebrisCloud() {
+  const canvas = document.getElementById('debris-canvas');
+  const w = window.innerWidth;
+  const h = window.innerHeight - 57;
+  const debrisRenderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: true});
+  debrisRenderer.setPixelRatio(window.devicePixelRatio);
+  debrisRenderer.setSize(w, h);
+
+  const scene = new THREE.Scene();
+  const debrisCamera = new THREE.PerspectiveCamera(45, w/h, 0.01, 100);
+  debrisCamera.position.set(0, 1.5, 4.5);
+
+  const controls = new THREE.OrbitControls(debrisCamera, canvas);
+  controls.enableDamping = true; controls.dampingFactor = 0.05; 
+  controls.autoRotate = true; controls.autoRotateSpeed = 0.3;
+  canvas.addEventListener('mousedown', () => controls.autoRotate = false);
+
+  const earth = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 64, 64), 
+    new THREE.MeshBasicMaterial({color: 0x020617, wireframe: true, transparent: true, opacity: 0.3})
+  );
+  scene.add(earth);
+
+  // Rasyonel Dağılım: Dünya'nın alt katmanından dış uzaya doğru azalan 22.830 çöp
+  const N = 22830;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(N * 3);
+  const col = new Float32Array(N * 3);
+  const colorObj = new THREE.Color();
+
+  for(let i=0; i<N; i++){
+    // Math.pow(x, 4) formülü, noktaların %80'inin merkeze (Dünya'ya) yığılmasını,
+    // kalan %20'nin ise dışarıya doğru seyrelerek uzanmasını sağlar.
+    const r = 1.01 + Math.pow(Math.random(), 4) * 6.2;
+    
+    const th = Math.random() * Math.PI * 2;
+    const ph = Math.acos(2 * Math.random() - 1);
+    
+    pos[i*3] = r * Math.sin(ph) * Math.cos(th);
+    pos[i*3+1] = r * Math.cos(ph);
+    pos[i*3+2] = r * Math.sin(ph) * Math.sin(th);
+
+    if(r < 1.3) colorObj.setHex(0xff3d50);      
+    else if(r < 2.0) colorObj.setHex(0x64748b); 
+    else if(r < 5.5) colorObj.setHex(0x334155); 
+    else colorObj.setHex(0x3b82f6);             
+
+    col[i*3] = colorObj.r; 
+    col[i*3+1] = colorObj.g; 
+    col[i*3+2] = colorObj.b;
+  }
+
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  
+  // Çöpler ufak toz tanesi gibi (size: 0.002)
+  const mat = new THREE.PointsMaterial({size: 0.002, vertexColors: true, transparent: true, opacity: 0.5});
+  const debrisPoints = new THREE.Points(geo, mat);
+  scene.add(debrisPoints);
+
+  function animate() {
+    requestAnimationFrame(animate);
+    if(document.getElementById('view-debris').style.display !== 'none') {
+        controls.update();
+        debrisPoints.rotation.y += 0.0004; 
+        earth.rotation.y += 0.001;
+        debrisRenderer.render(scene, debrisCamera);
+    }
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+      if(document.getElementById('view-debris').style.display !== 'none') {
+          const nw = window.innerWidth; const nh = window.innerHeight - 57;
+          debrisRenderer.setSize(nw, nh); debrisCamera.aspect = nw/nh; debrisCamera.updateProjectionMatrix();
+      }
+  });
+})();
+
+// ── ORİJİNAL DİĞER LİSTELER VE GRAFİKLER (DOKUNULMADI) ──
+function buildSatList(){
+  document.getElementById('sat-list').innerHTML=SATS.map(sat=>{
+    const al=ALERTS.filter(a=>a.sat===sat.isim).sort((a,b)=>({RED:0,ORANGE:1,YELLOW:2,GREEN:3}[a.tier]-{RED:0,ORANGE:1,YELLOW:2,GREEN:3}[b.tier]))[0];
+    const tier=al?al.tier:'GREEN';
+    const tierTR={RED:'KRİTİK',ORANGE:'TURUNCU',YELLOW:'SARI',GREEN:'YEŞİL'};
+    return`<div class="sat-item">
+      <div class="sat-ico ${sat.tip.toLowerCase()}">${sat.tip}</div>
+      <div class="sat-info">
+        <div class="sat-name">${sat.isim}</div>
+        <div class="sat-meta"><span>NORAD ${sat.norad}</span><span>${sat.irtifa.toLocaleString('tr')} km</span><span>${sat.tip==='GEO'?'Jeostasyoner':'Alçak Yörünge'}</span></div>
+      </div>
+      <div class="sat-risk"><div class="risk-badge r-${tier}">${tierTR[tier]}</div></div>
+    </div>`;
+  }).join('');
+}
+
+function buildAlertList(){
+  const tO={RED:0,ORANGE:1,YELLOW:2,GREEN:3};
+  const sorted=[...ALERTS].sort((a,b)=>tO[a.tier]-tO[b.tier]);
+  let r=0,o=0,y=0;
+  ALERTS.forEach(a=>{if(a.tier==='RED')r++;if(a.tier==='ORANGE')o++;if(a.tier==='YELLOW')y++;});
+  document.getElementById('m-red').textContent=r;
+  document.getElementById('m-orange').textContent=o;
+  document.getElementById('m-yellow').textContent=y;
+  document.getElementById('alert-badge').textContent=ALERTS.length+' olay';
+  if(r>0)document.getElementById('ban-text').textContent='AKTİF KAVUŞUM UYARISI — '+r+' KRİTİK OLAY (24 SAAT)';
+  const tC={RED:'var(--red)',ORANGE:'var(--orange)',YELLOW:'var(--yellow)',GREEN:'var(--green)'};
+  const tTR={RED:'KRİTİK',ORANGE:'TURUNCU',YELLOW:'SARI',GREEN:'YEŞİL'};
+  document.getElementById('alert-list').innerHTML=sorted.map(a=>{
+    const pc=a.pc>=1e-3?(a.pc*1e3).toFixed(2)+'×10⁻³':a.pc>=1e-4?(a.pc*1e4).toFixed(1)+'×10⁻⁴':(a.pc*1e5).toFixed(1)+'×10⁻⁵';
+    return`<div class="alert-item">
+      <div class="alert-tier r-${a.tier}">${tTR[a.tier]}</div>
+      <div class="alert-body">
+        <div class="alert-title">${a.sat} × NORAD ${a.debris}</div>
+        <div class="alert-stats"><span>⏱ +${a.tca_h.toFixed(1)}s</span><span>📏 ${a.dist.toFixed(3)} km</span><span>⚡ ${a.vel.toFixed(1)} km/s</span><span>🤖 ${(a.ml*100).toFixed(0)}%</span></div>
+      </div>
+      <div class="alert-pc-wrap"><div class="alert-pc" style="color:${tC[a.tier]}">${pc}</div><div class="alert-pc-lbl">Pc</div></div>
+    </div>`;
+  }).join('');
+}
+
+function buildHeatmap(){
+  const el=document.getElementById('heatmap');
+  const saatler=Array.from({length:18},(_,i)=>(i*4)+'s');
+  const matris={};
+  SATS.forEach(s=>matris[s.isim]=Array(18).fill(0));
+  ALERTS.forEach(a=>{
+    if(!matris[a.sat])return;
+    const idx=Math.min(17,Math.floor(a.tca_h/4));
+    const risk=a.tier==='RED'?1:a.tier==='ORANGE'?.65:a.tier==='YELLOW'?.3:.08;
+    matris[a.sat][idx]=Math.max(matris[a.sat][idx],risk);
+  });
+  SATS.forEach(s=>{matris[s.isim]=matris[s.isim].map(v=>v>0?v+Math.random()*.04:Math.random()*.05)});
+  function rc(v){
+    if(v<.05)return'#0a1a0a';if(v<.15)return'#0e2c0e';if(v<.30)return'#1a5a1a';
+    if(v<.50)return'#5a5800';if(v<.65)return'#8a3200';if(v<.82)return'#cc1f00';return'#ff1500';
+  }
+  let html=`<div class="hm-axis"><div style="width:68px;flex-shrink:0"></div>`;
+  saatler.forEach(s=>html+=`<div class="hm-ax">${s}</div>`);
+  html+=`</div>`;
+  SATS.forEach(sat=>{
+    html+=`<div class="hm-row"><div class="hm-lbl">${sat.isim.replace('Türksat ','TS')}</div>`;
+    matris[sat.isim].forEach((v,i)=>{
+      html+=`<div class="hm-cell" style="background:${rc(v)}" onmousemove="showTip(event,'${sat.isim}','${saatler[i]}','${Math.round(v*100)}')" onmouseleave="hideTip()"></div>`;
+    });
+    html+=`</div>`;
+  });
+  el.innerHTML=html;
+}
+
+function buildScatter(){
+  const ctx=document.getElementById('scatter-chart').getContext('2d');
+  const tC={RED:'#ff3d50',ORANGE:'#ff6428',YELLOW:'#ffcc00'};
+  const tS={RED:10,ORANGE:8,YELLOW:6};
+  const tTR={RED:'Kritik',ORANGE:'Turuncu',YELLOW:'Sarı'};
+  const ds=['RED','ORANGE','YELLOW'].map(t=>({
+    label:tTR[t],
+    data:ALERTS.filter(a=>a.tier===t).map(a=>({x:Math.log10(Math.max(a.pc,1e-9)),y:a.dist,raw:a})),
+    backgroundColor:tC[t]+'88',borderColor:tC[t],borderWidth:1.5,
+    pointRadius:tS[t],pointHoverRadius:tS[t]+3,
+  }));
+  document.getElementById('scatter-legend').innerHTML=['RED','ORANGE','YELLOW'].map(t=>
+    `<div class="cl-item"><div class="cl-dot" style="background:${tC[t]}"></div>${tTR[t]} (${ALERTS.filter(a=>a.tier===t).length})</div>`
+  ).join('');
+  if(window._sc)window._sc.destroy();
+  window._sc=new Chart(ctx,{
+    type:'scatter',data:{datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{
+        backgroundColor:'#07111e',borderColor:'rgba(80,160,255,.3)',borderWidth:1,
+        titleColor:'#ddeeff',bodyColor:'#6a96bc',padding:10,
+        titleFont:{family:'Space Mono',size:11},bodyFont:{family:'Space Mono',size:10},
+        callbacks:{title:ctx=>ctx[0].raw.raw.sat+' × '+ctx[0].raw.raw.debris,
+          label:ctx=>{const d=ctx.raw.raw;return['Pc: '+d.pc.toExponential(2),'Mesafe: '+d.dist.toFixed(3)+' km','ML: '+(d.ml*100).toFixed(0)+'%']}}
+      }},
+      scales:{
+        x:{title:{display:true,text:'log₁₀(Çarpışma Olasılığı)',color:'#6a96bc',font:{family:'Space Mono',size:10}},
+          grid:{color:'rgba(80,160,255,.07)'},ticks:{color:'#2d5070',font:{family:'Space Mono',size:10},callback:v=>'10^'+v}},
+        y:{title:{display:true,text:'Kaçış Mesafesi (km)',color:'#6a96bc',font:{family:'Space Mono',size:10}},
+          grid:{color:'rgba(80,160,255,.07)'},ticks:{color:'#2d5070',font:{family:'Space Mono',size:10}}}
+      }
+    }
+  });
+}
+
+function buildTimeline(){
+  document.getElementById('timeline').innerHTML=[...ALERTS].filter(a=>a.tier!=='GREEN').sort((a,b)=>a.tca_h-b.tca_h).slice(0,10).map(a=>
+    `<div class="tl-row">
+      <div class="tl-lbl">${a.sat.replace('Türksat ','TS')}</div>
+      <div class="tl-track"><div class="tl-fill ${a.tier}" style="width:${(a.tca_h/72*100).toFixed(1)}%">${a.tca_h>10?'NORAD '+a.debris:''}</div></div>
+      <div class="tl-h">+${a.tca_h.toFixed(0)}s</div>
+    </div>`
+  ).join('');
+}
+
+function showTip(e,sat,saat,pct){
+  const tt=document.getElementById('tooltip');
+  document.getElementById('tt-title').textContent=sat+' · '+saat;
+  document.getElementById('tt-body').innerHTML=`<div class="tt-row"><span>Risk skoru</span><span>%${pct}</span></div>`;
+  tt.style.display='block';tt.style.left=(e.clientX+14)+'px';tt.style.top=(e.clientY-44)+'px';
+}
+function hideTip(){document.getElementById('tooltip').style.display='none'}
+
+function loadJSON(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const raw=JSON.parse(e.target.result);
+      const events=raw.scored_conjunctions||raw.alerts||(Array.isArray(raw)?raw:null);
+      if(!events){alert('JSON formatı tanınmadı.');return}
+      ALERTS=events.map(ev=>({
+        tier:ev.final_tier||ev.tier||'GREEN',
+        sat:SATS.find(s=>s.norad===(ev.turkish_norad_id||ev.norad))?.isim||'NORAD '+ev.turkish_norad_id,
+        debris:ev.debris_norad_id||0,dist:ev.miss_distance_km||0,vel:ev.relative_velocity_km_s||0,
+        ml:ev.ml_score||0,tca_h:ev.tca_hours_from_now||0,pc:ev.pc_analytic||0,
+      }));
+      renderAll();
+    }catch(err){alert('Hata: '+err.message)}
+  };reader.readAsText(file);
+}
+
+function renderAll(){buildSatList();buildAlertList();buildHeatmap();buildScatter();buildTimeline()}
+renderAll();
+</script>
 </body>
 </html>
