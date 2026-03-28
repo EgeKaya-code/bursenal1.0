@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bursenal SSA Dashboard</title>
+    <!-- Kütüphaneler: React ve Tailwind CSS (CDN üzerinden) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Özel animasyonlar */
+        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+        .animate-spin-slow { animation: spin-slow 60s linear infinite; }
+        .animate-spin-reverse { animation: spin-reverse 40s linear infinite; }
+    </style>
+</head>
+<body class="bg-[#030712]">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // İkon Bileşeni
+        const SvgIcon = ({ name }) => {
+            const icons = {
+                globe: <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zM12 4a15.89 15.89 0 0 1 4 8 15.89 15.89 0 0 1-4 8 15.89 15.89 0 0 1-4-8 15.89 15.89 0 0 1 4-8zM2.5 12h19" />,
+                satellite: <path d="M13 7 9 3 5 7l4 4M17 11 4 4-4 4-4-4m7 12 5 5c1.5 1.5 3 1.5 4.5 0s1.5-3 0-4.5L12 7m0 10c.5.5 1 1 1.5 1m-2-6 .5.5m.5-.5.5.5m.5-.5.5.5m.5-.5.5.5" />,
+                alert: <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01" />,
+                activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />,
+                shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            };
+            return (
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        function App() {
+            const [time, setTime] = useState(new Date());
+
+            useEffect(() => {
+                const timer = setInterval(() => setTime(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            const stats = [
+                { label: "Toplam Nesne", value: "96", icon: "globe", color: "text-blue-400" },
+                { label: "LEO (Alçak Yörünge)", value: "91", icon: "activity", color: "text-cyan-400" },
+                { label: "GEO (Yer Sabit)", value: "5", icon: "satellite", color: "text-indigo-400" },
+                { label: "Riskli Olaylar", value: "5", icon: "alert", color: "text-rose-500" }
+            ];
+
+            const fleet = [
+                { name: "TÜRKSAT 5B", type: "GEO", status: "Güvenli", risk: "Düşük" },
+                { name: "TÜRKSAT 5A", type: "GEO", status: "Güvenli", risk: "Düşük" },
+                { name: "İMECE", type: "LEO", status: "İzleniyor", risk: "Yüksek" },
+                { name: "GÖKTÜRK-1", type: "LEO", status: "Güvenli", risk: "Orta" },
+                { name: "GÖKTÜRK-2", type: "LEO", status: "Güvenli", risk: "Düşük" }
+            ];
+
+            const conjunctions = [
+                { id: 1, target: "İMECE", threat: "DEBRIS (41231)", dist: "1.2 km", prob: "1.2e-4", tier: "Kırmızı" },
+                { id: 2, target: "RASAT", threat: "IRIDIUM 33 DEB", dist: "2.5 km", prob: "4.2e-5", tier: "Turuncu" },
+                { id: 3, target: "GÖKTÜRK-1", threat: "CZ-4C DEB", dist: "8.1 km", prob: "2.1e-6", tier: "Sarı" }
+            ];
+
+            return (
+                <div className="min-h-screen text-slate-200 p-4 md:p-8 font-sans selection:bg-blue-500/30">
+                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 border-b border-slate-800 pb-8">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-900/40 text-white">
+                                <SvgIcon name="shield" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic">Bursenal SSA</h1>
+                                <p className="text-slate-500 text-xs font-mono font-bold uppercase tracking-wider">
+                                    {time.toISOString().replace('T', ' ').split('.')[0]} UTC • SİSTEM AKTİF
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button className="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition-all border border-slate-700">RAPOR AL</button>
+                            <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-blue-600/20 transition-all">VERİLERİ YENİLE</button>
+                        </div>
+                    </div>
+
+                    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <div className="lg:col-span-1 space-y-4">
+                            {stats.map((stat, i) => (
+                                <div key={i} className="bg-slate-900/50 border border-slate-800 p-5 rounded-3xl hover:border-slate-700 transition-all group">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className={p-2 rounded-xl bg-slate-950 ${stat.color}}>
+                                            <SvgIcon name={stat.icon} />
+                                        </span>
+                                        <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Canlı Veri</span>
+                                    </div>
+                                    <p className="text-slate-500 text-xs font-bold uppercase mb-1">{stat.label}</p>
+                                    <h2 className="text-3xl font-black text-white group-hover:translate-x-1 transition-transform">{stat.value}</h2>
+                                </div>
+                            ))}
+
+                            <div className="bg-slate-900/80 border border-slate-800 rounded-[2rem] p-6 mt-6 shadow-2xl">
+                                <h3 className="text-sm font-black text-white mb-6 border-l-4 border-blue-600 pl-3 uppercase tracking-widest">Milli Uydu Filosu</h3>
+                                <div className="space-y-4">
+                                    {fleet.map((sat, i) => (
+                                        <div key={i} className="flex items-center gap-3 p-3 rounded-2xl hover:bg-slate-800/50 transition-colors cursor-pointer group">
+                                            <div className={w-2 h-2 rounded-full ${sat.risk === 'Yüksek' ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}} />
+                                            <div className="flex-1">
+                                                <p className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">{sat.name}</p>
+                                                <p className="text-[10px] text-slate-500 uppercase font-medium">{sat.type} • {sat.status}</p>
+                                            </div>
+                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                                                sat.risk === 'Yüksek' ? 'bg-rose-500/10 text-rose-500' : 'bg-slate-800 text-slate-400'
+                                            }`}>
+                                                {sat.risk}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-3 space-y-6">
+                            <div className="bg-slate-900 border border-slate-800 rounded-[3rem] h-[450px] relative overflow-hidden flex items-center justify-center group">
+                                <div className="absolute inset-0 opacity-10 pointer-events-none">
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-blue-500 rounded-full animate-spin-slow" />
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] border border-blue-500/40 rounded-full animate-spin-reverse" />
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] border border-blue-500/20 rounded-full" />
+                                </div>
+                                <div className="text-center z-10 p-10">
+                                    <div className="inline-block p-6 rounded-full bg-blue-600/10 text-blue-500 mb-6 group-hover:scale-110 transition-transform">
+                                        <SvgIcon name="globe" />
+                                    </div>
+                                    <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">Yörünge Analiz Paneli</h2>
+                                    <p className="text-slate-500 text-sm max-w-md mx-auto leading-relaxed">
+                                        Tüm milli ve yabancı uyduların TLE verileri üzerinden hesaplanan SGP4 yörünge yayılımları burada görselleştirilir.
+                                    </p>
+                                </div>
+                                <div className="absolute bottom-8 left-8 flex gap-4 text-[10px] font-black uppercase tracking-widest text-slate-600">
+                                    <span className="flex items-center gap-2"><div className="w-2 h-2 bg-blue-500 rounded-full" /> AKTİF</span>
+                                    <span className="flex items-center gap-2"><div className="w-2 h-2 bg-slate-700 rounded-full" /> PASİF</span>
+                                    <span className="flex items-center gap-2"><div className="w-2 h-2 bg-rose-500 rounded-full" /> ENKAZ</span>
+                                </div>
+                            </div>
+
+                            <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                                <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 backdrop-blur-xl">
+                                    <h3 className="text-sm font-black text-white flex items-center gap-3 uppercase tracking-[0.2em]">
+                                        <span className="text-rose-500"><SvgIcon name="alert" /></span>
+                                        Çarpışma Riski Taraması
+                                    </h3>
+                                    <span className="bg-rose-600 text-white text-[10px] font-black px-4 py-1.5 rounded-full shadow-lg shadow-rose-900/20">5 KRİTİK OLAY</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-slate-800/30 text-[10px] text-slate-500 font-black uppercase tracking-widest">
+                                            <tr>
+                                                <th className="px-8 py-5">Hedef Varlık</th>
+                                                <th className="px-8 py-5">Tehdit/Enkaz</th>
+                                                <th className="px-8 py-5 text-center">Mesafe</th>
+                                                <th className="px-8 py-5 text-center">Olasılık</th>
+                                                <th className="px-8 py-5 text-right">Şiddet</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800">
+                                            {conjunctions.map((item) => (
+                                                <tr key={item.id} className="hover:bg-slate-800/20 transition-all group">
+                                                    <td className="px-8 py-6">
+                                                        <span className="font-bold text-blue-400 group-hover:text-blue-300 transition-colors">{item.target}</span>
+                                                    </td>
+                                                    <td className="px-8 py-6 text-xs text-slate-400 font-mono">{item.threat}</td>
+                                                    <td className="px-8 py-6 text-center text-xs text-white font-mono font-bold">{item.dist}</td>
+                                                    <td className="px-8 py-6 text-center text-xs text-slate-500 font-mono">{item.prob}</td>
+                                                    <td className="px-8 py-6 text-right">
+                                                        <span className={`px-3 py-1 rounded text-[10px] font-black uppercase ${
+                                                            item.tier === 'Kırmızı' ? 'bg-rose-600 text-white' : 
+                                                            item.tier === 'Turuncu' ? 'bg-orange-500/20 text-orange-500' : 'bg-yellow-500/20 text-yellow-500'
+                                                        }`}>{item.tier}</span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <footer className="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center text-slate-600 gap-4">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.4em]">© 2026 BURSENAL SPACE DEFENSE SYSTEM</p>
+                        <div className="flex gap-6 text-[10px] font-bold uppercase tracking-widest">
+                            <span className="hover:text-blue-500 cursor-pointer">DOKÜMANTASYON</span>
+                            <span className="hover:text-blue-500 cursor-pointer">API ERİŞİMİ</span>
+                            <span className="hover:text-blue-500 cursor-pointer">DESTEK</span>
+                        </div>
+                    </footer>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
