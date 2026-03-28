@@ -28,7 +28,7 @@
             background-size: 100% 4px; pointer-events: none; z-index: 1000; opacity: 0.3;
         }
 
-        /* Scrollbar Gizleme (Daha temiz görünüm) */
+        /* Scrollbar Gizleme */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #030712; }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
@@ -40,7 +40,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // İkon Bileşeni (Arkadaşının tasarımı)
         const SvgIcon = ({ name }) => {
             const icons = {
                 globe: <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zM12 4a15.89 15.89 0 0 1 4 8 15.89 15.89 0 0 1-4 8 15.89 15.89 0 0 1-4-8 15.89 15.89 0 0 1 4-8zM2.5 12h19" />,
@@ -56,7 +55,6 @@
             );
         };
 
-        // Ana Veriler (Ege'nin SGP4 verileri + Arkadaşının tabloları)
         const fleetData = [
             { name: "TÜRKSAT 4A", band: "GEO", risk: 0, status: "Güvenli" },
             { name: "TÜRKSAT 4B", band: "GEO", risk: 0, status: "Güvenli" },
@@ -78,27 +76,31 @@
             const [time, setTime] = useState(new Date());
             const [activeSat, setActiveSat] = useState(-1);
             const canvasRef = useRef(null);
-            const activeSatRef = useRef(-1); // Animasyon döngüsü için referans
+            const activeSatRef = useRef(-1);
 
-            // Saat Güncelleme
             useEffect(() => {
                 const timer = setInterval(() => setTime(new Date()), 1000);
                 return () => clearInterval(timer);
             }, []);
 
-            // Ege'nin Muhteşem 3D Canvas Simülasyonu
             useEffect(() => {
                 const canvas = canvasRef.current;
                 const ctx = canvas.getContext('2d');
                 let animationFrameId;
                 let t = 0;
                 let W, H, cx, cy;
+                let stars = [];
 
                 const resize = () => {
                     const rect = canvas.parentElement.getBoundingClientRect();
                     W = rect.width; H = rect.height;
                     canvas.width = W; canvas.height = H;
                     cx = W / 2; cy = H / 2;
+                    
+                    stars = [];
+                    for (let i = 0; i < 80; i++) {
+                        stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.5, o: Math.random() });
+                    }
                 };
                 window.addEventListener('resize', resize);
                 resize();
@@ -107,17 +109,11 @@
                     ctx.clearRect(0, 0, W, H);
                     const earthR = Math.min(W, H) * 0.18;
 
-                    // 1. Yıldızlar
-                    if (!draw.stars) {
-                        draw.stars = [];
-                        for (let i = 0; i < 80; i++) draw.stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.5, o: Math.random() });
-                    }
-                    draw.stars.forEach(s => {
+                    stars.forEach(s => {
                         ctx.fillStyle = `rgba(232, 240, 248, ${s.o})`;
                         ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
                     });
 
-                    // 2. Dünya ve Atmosfer
                     const grd = ctx.createRadialGradient(cx, cy, earthR * 0.5, cx, cy, earthR * 1.5);
                     grd.addColorStop(0, 'rgba(55, 138, 221, 0.15)');
                     grd.addColorStop(1, 'transparent');
@@ -128,7 +124,6 @@
                     ctx.fillStyle = '#0d1e35'; ctx.fill();
                     ctx.strokeStyle = 'rgba(55, 138, 221, 0.5)'; ctx.lineWidth = 2; ctx.stroke();
 
-                    // 3. Uydular (3D Derinlikli)
                     const drawSatGroup = (band, radius, speedMultiplier) => {
                         const group = fleetData.filter(s => s.band === band);
                         group.forEach((s) => {
@@ -148,7 +143,6 @@
                             ctx.fillStyle = s.risk > 0 ? '#f43f5e' : (band === 'GEO' ? '#3b82f6' : '#10b981');
                             ctx.fill(); ctx.globalAlpha = 1;
 
-                            // Radar Kilidi (Lock-on)
                             if (isSelected) {
                                 ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2;
                                 ctx.beginPath(); ctx.arc(x, y, size + 10 + Math.sin(t * 5) * 4, 0, Math.PI * 2); ctx.stroke();
@@ -169,10 +163,9 @@
                 return () => { window.removeEventListener('resize', resize); cancelAnimationFrame(animationFrameId); };
             }, []);
 
-            // Listeden uydu seçme işlemi
             const handleSatClick = (index) => {
                 setActiveSat(index);
-                activeSatRef.current = index; // Canvas'ın okuması için ref'i güncelle
+                activeSatRef.current = index;
             };
 
             const stats = [
@@ -197,18 +190,18 @@
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <button className="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition-all border border-slate-700 font-mono">RAPOR AL</button>
+                            <button className="bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition-all border border-slate-700 font-mono text-white">RAPOR AL</button>
                             <button className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-blue-600/20 transition-all font-mono">VERİLERİ YENİLE</button>
                         </div>
                     </div>
 
                     <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
-                        {/* Sol Panel: İstatistikler ve Filo */}
                         <div className="lg:col-span-1 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 {stats.map((stat, i) => (
                                     <div key={i} className="bg-slate-900/50 border border-slate-800 p-4 rounded-3xl hover:border-slate-700 transition-all group col-span-2 sm:col-span-1 lg:col-span-2">
                                         <div className="flex justify-between items-center mb-2">
+                                            {/* BACKTICK HATASI DÜZELTİLDİ */}
                                             <span className={`p-2 rounded-xl bg-slate-950 ${stat.color}`}><SvgIcon name={stat.icon} /></span>
                                         </div>
                                         <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1">{stat.label}</p>
@@ -222,7 +215,8 @@
                                 <div className="space-y-3">
                                     {fleetData.map((sat, i) => (
                                         <div key={i} onClick={() => handleSatClick(i)} className={`flex items-center gap-3 p-3 rounded-2xl transition-colors cursor-pointer group ${activeSat === i ? 'bg-blue-900/30 border border-blue-800/50' : 'hover:bg-slate-800/50 border border-transparent'}`}>
-                                            <div className={`w-2 h-2 rounded-full ${sat.risk > 0 ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+                                            {/* BACKTICK HATASI DÜZELTİLDİ */}
+                                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${sat.risk > 0 ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
                                             <div className="flex-1">
                                                 <p className="text-xs font-bold text-white group-hover:text-blue-400 transition-colors">{sat.name}</p>
                                                 <p className="text-[10px] text-slate-500 uppercase font-medium">{sat.band} • {sat.status}</p>
@@ -233,10 +227,7 @@
                             </div>
                         </div>
 
-                        {/* Sağ Panel: Canvas Simülasyonu ve Tablo */}
                         <div className="lg:col-span-3 space-y-6">
-                            
-                            {/* EGE'NİN CANVAS SİMÜLASYONU BURADA */}
                             <div className="bg-slate-900 border border-slate-800 rounded-[3rem] h-[500px] relative overflow-hidden shadow-2xl">
                                 <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-0"></canvas>
                                 
@@ -252,7 +243,6 @@
                                 </div>
                             </div>
 
-                            {/* ARKADAŞININ ÇARPIŞMA TABLOSU BURADA */}
                             <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
                                 <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 backdrop-blur-xl">
                                     <h3 className="text-sm font-black text-white flex items-center gap-3 uppercase tracking-[0.2em]">
